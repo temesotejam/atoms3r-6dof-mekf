@@ -18,13 +18,21 @@ float vecNorm(float x, float y, float z) {
 bool readImu(mekf6::Vec3& accel_g, mekf6::Vec3& gyro_dps) {
   if (!M5.Imu.update()) return false;
   const auto data = M5.Imu.getImuData();
-  accel_g = {data.accel.x, data.accel.y, data.accel.z};
-  gyro_dps = {data.gyro.x, data.gyro.y, data.gyro.z};
+
+  const mekf6::Vec3 accel_imu{data.accel.x, data.accel.y, data.accel.z};
+  const mekf6::Vec3 gyro_imu{data.gyro.x, data.gyro.y, data.gyro.z};
+
+  // Standard mounting for this project is Y180: AtomS3R is physically rotated
+  // 180 degrees about +Y relative to the vehicle/body frame. Convert all IMU
+  // vectors before calibration and estimation so CSV/Euler output is body-frame
+  // referenced and the installed vehicle-level pose reads Roll/Pitch ~= 0 deg.
+  accel_g = appcfg::imuToBodyY180(accel_imu);
+  gyro_dps = appcfg::imuToBodyY180(gyro_imu);
   return true;
 }
 
 mekf6::Vec3 calibrateGyroBias() {
-  Serial.println("# Gyro calibration: keep the device still and approximately stationary.");
+  Serial.println("# Gyro calibration: keep the vehicle/body still and approximately stationary.");
   mekf6::Vec3 sum{};
   uint32_t samples = 0;
   uint32_t stable_start_ms = 0;
@@ -65,7 +73,7 @@ mekf6::Vec3 calibrateGyroBias() {
   }
 
   const mekf6::Vec3 bias_dps{sum.x / samples, sum.y / samples, sum.z / samples};
-  Serial.printf("# Gyro bias init [dps]: %.5f, %.5f, %.5f (%lu samples)\n",
+  Serial.printf("# Gyro bias init body-frame [dps]: %.5f, %.5f, %.5f (%lu samples)\n",
                 bias_dps.x, bias_dps.y, bias_dps.z, static_cast<unsigned long>(samples));
   return {mekf6::degToRad(bias_dps.x), mekf6::degToRad(bias_dps.y), mekf6::degToRad(bias_dps.z)};
 }
@@ -98,6 +106,7 @@ bool initializeAttitudeFromAccel() {
 
 void printCsvHeader() {
   Serial.println("# 6-axis MEKF: quaternion nominal state + 6-state error covariance");
+  Serial.println("# Mounting: Y180 standard (body X=-IMU X, body Y=IMU Y, body Z=-IMU Z)");
   Serial.println("# NOTE: yaw has no absolute reference with gyro+accelerometer only and will drift.");
   Serial.println("t_us,rate_hz,roll_deg,pitch_deg,yaw_deg,gx_dps,gy_dps,gz_dps,bgx_dps,bgy_dps,bgz_dps,acc_norm_g,acc_mag_err_g,acc_resid_deg,acc_conf,acc_used");
 }
