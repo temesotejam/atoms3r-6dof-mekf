@@ -10,22 +10,27 @@ constexpr float degToRad(float x) { return x * (kPi / 180.0f); }
 constexpr float radToDeg(float x) { return x * (180.0f / kPi); }
 
 struct Vec3 {
-  float x = 0.0f;
-  float y = 0.0f;
-  float z = 0.0f;
+  float x;
+  float y;
+  float z;
+  constexpr Vec3(float x_ = 0.0f, float y_ = 0.0f, float z_ = 0.0f) : x(x_), y(y_), z(z_) {}
 };
 
 struct Quaternion {
-  float w = 1.0f;
-  float x = 0.0f;
-  float y = 0.0f;
-  float z = 0.0f;
+  float w;
+  float x;
+  float y;
+  float z;
+  constexpr Quaternion(float w_ = 1.0f, float x_ = 0.0f, float y_ = 0.0f, float z_ = 0.0f)
+      : w(w_), x(x_), y(y_), z(z_) {}
 };
 
 struct EulerDeg {
-  float roll = 0.0f;
-  float pitch = 0.0f;
-  float yaw = 0.0f;
+  float roll;
+  float pitch;
+  float yaw;
+  constexpr EulerDeg(float roll_ = 0.0f, float pitch_ = 0.0f, float yaw_ = 0.0f)
+      : roll(roll_), pitch(pitch_), yaw(yaw_) {}
 };
 
 struct Config {
