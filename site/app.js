@@ -22,7 +22,15 @@ let keepReading = false;
 let receiveBuffer = "";
 let csvHeader = expectedColumns.slice();
 let logLines = ["# Serial monitor ready."];
-const maxRenderedLines = 2500;
+let totalLineCount = 1;
+let renderTimer = null;
+
+// Keep the live terminal deliberately small. Replacing a multi-thousand-line
+// <pre> for every serial line can stall the browser even though Web Serial itself is
+// still receiving data. The complete capture is kept separately for download.
+const maxRenderedLines = 600;
+const maxStoredLines = 250000;
+const renderIntervalMs = 100; // UI refresh <= 10 Hz; serial parsing stays full-rate.
 
 function setStatus(text, kind = "neutral") {
   serialStatus.textContent = text;
@@ -30,15 +38,33 @@ function setStatus(text, kind = "neutral") {
 }
 
 function renderLog() {
+  renderTimer = null;
   terminal.textContent = logLines.slice(-maxRenderedLines).join("\n");
-  lineCount.textContent = `${logLines.length} lines`;
+  lineCount.textContent = `${totalLineCount} lines`;
   if (autoScroll.checked) terminal.scrollTop = terminal.scrollHeight;
 }
 
-function appendLine(line) {
+function scheduleRender() {
+  if (renderTimer !== null) return;
+  renderTimer = window.setTimeout(renderLog, renderIntervalMs);
+}
+
+function storeLine(line) {
   logLines.push(line);
-  renderLog();
+  totalLineCount += 1;
+
+  // Bound memory for very long captures without touching the hot receive path
+  // on every line. 250k rows is roughly well over an hour at the current 50 Hz
+  // telemetry rate.
+  if (logLines.length > maxStoredLines + 5000) {
+    logLines.splice(0, 5000);
+  }
+}
+
+function appendLine(line) {
+  storeLine(line);
   parseLine(line);
+  scheduleRender();
 }
 
 function finiteNumber(value) {
@@ -106,7 +132,7 @@ async function readLoop(activePort) {
       receiveBuffer += value;
       const lines = receiveBuffer.split(/\r?\n/);
       receiveBuffer = lines.pop() ?? "";
-      lines.forEach(appendLine);
+      for (const line of lines) appendLine(line);
     }
   } catch (error) {
     if (keepReading) appendLine(`# Serial read error: ${error.message}`);
@@ -173,6 +199,11 @@ async function disconnectSerial() {
 
 function clearLog() {
   logLines = [];
+  totalLineCount = 0;
+  if (renderTimer !== null) {
+    clearTimeout(renderTimer);
+    renderTimer = null;
+  }
   renderLog();
 }
 

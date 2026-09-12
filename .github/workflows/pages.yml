@@ -30,6 +30,9 @@ jobs:
       - name: Build AtomS3R firmware
         run: pio run -e atoms3r
 
+      - name: Validate web JavaScript
+        run: node --check site/app.js
+
       - name: Assemble Pages artifact
         shell: bash
         run: |
