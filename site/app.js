@@ -9,12 +9,18 @@ const terminal = $("terminal");
 const serialStatus = $("serialStatus");
 const lineCount = $("lineCount");
 
+const expectedColumns = [
+  "t_us", "rate_hz", "roll_deg", "pitch_deg", "yaw_deg",
+  "gx_dps", "gy_dps", "gz_dps", "bgx_dps", "bgy_dps", "bgz_dps",
+  "acc_norm_g", "acc_mag_err_g", "acc_resid_deg", "acc_conf", "acc_used",
+];
+
 let port = null;
 let reader = null;
 let readTask = null;
 let keepReading = false;
 let receiveBuffer = "";
-let csvHeader = null;
+let csvHeader = expectedColumns.slice();
 let logLines = ["# Serial monitor ready."];
 const maxRenderedLines = 2500;
 
@@ -52,7 +58,6 @@ function parseLine(line) {
     return;
   }
 
-  if (!csvHeader) return;
   const values = line.split(",");
   if (values.length !== csvHeader.length) return;
 
@@ -66,27 +71,25 @@ function parseLine(line) {
   const confidence = finiteNumber(row.acc_conf);
   const used = finiteNumber(row.acc_used);
 
+  if ([roll, pitch, yaw, rate, confidence, used].some((v) => v === null)) return;
+
   setMetric("rollValue", roll);
   setMetric("pitchValue", pitch);
   setMetric("yawValue", yaw);
   setMetric("rateValue", rate, 1);
   setMetric("confValue", confidence, 3);
 
-  if (confidence !== null) {
-    const clamped = Math.max(0, Math.min(1, confidence));
-    $("confBar").style.width = `${clamped * 100}%`;
-    $("confPercent").textContent = `${Math.round(clamped * 100)}%`;
-  }
+  const clamped = Math.max(0, Math.min(1, confidence));
+  $("confBar").style.width = `${clamped * 100}%`;
+  $("confPercent").textContent = `${Math.round(clamped * 100)}%`;
 
-  if (used !== null) {
-    const isUsed = used >= 0.5;
-    $("usedValue").textContent = isUsed ? "USED" : "REJECT";
-    $("usedValue").style.color = isUsed ? "#86efac" : "#fbbf24";
-    $("usedLabel").textContent = isUsed ? "Accel update" : "Gyro only";
-    $("rejectionMessage").textContent = isUsed
-      ? "Accelを観測更新に使用中です。"
-      : "AccelをReject中です。現在はGyro predictionを優先しています。";
-  }
+  const isUsed = used >= 0.5;
+  $("usedValue").textContent = isUsed ? "USED" : "REJECT";
+  $("usedValue").style.color = isUsed ? "#86efac" : "#fbbf24";
+  $("usedLabel").textContent = isUsed ? "Accel update" : "Gyro only";
+  $("rejectionMessage").textContent = isUsed
+    ? "Accelを観測更新に使用中です。"
+    : "AccelをReject中です。現在はGyro predictionを優先しています。";
 }
 
 async function readLoop(activePort) {
@@ -127,7 +130,7 @@ async function connectSerial() {
     port = selectedPort;
     keepReading = true;
     receiveBuffer = "";
-    csvHeader = null;
+    csvHeader = expectedColumns.slice();
     connectButton.disabled = true;
     disconnectButton.disabled = false;
     setStatus("115200 bps 接続中", "good");
