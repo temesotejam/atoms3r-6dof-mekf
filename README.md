@@ -4,6 +4,26 @@ A directly flashable **6-axis MEKF attitude estimator with Adaptive Acceleromete
 
 The firmware uses only the onboard accelerometer and gyroscope. On AtomS3R-M12 these are provided by the BMI270; the BMM150 magnetometer is intentionally not used.
 
+## Web flasher + serial monitor
+
+GitHub Pages hosts a browser tool for both flashing and viewing the MEKF log:
+
+**https://temesotejam.github.io/atoms3r-6dof-mekf/**
+
+Use desktop Chrome or Edge over HTTPS. The page provides:
+
+- ESP Web Tools firmware installation for ESP32-S3
+- the exact firmware rebuilt from the current `main` source
+- Web Serial connection at 115200 bps
+- live Roll / Pitch / Yaw / loop-rate display
+- live `acc_conf` and `acc_used` display so Adaptive Accel Rejection can be observed directly
+- raw serial log display
+- CSV/log download from the browser
+
+After flashing, let the board reboot normally, disconnect the installer if necessary, then press **シリアル接続** on the same page.
+
+> GitHub Pages must be enabled for this repository with **Settings -> Pages -> Source: GitHub Actions** once. The `pages` workflow handles all later firmware rebuilds and deployments automatically.
+
 ## What it does
 
 - 6-state Multiplicative / Error-State EKF
@@ -104,11 +124,16 @@ src/
   app_config.hpp    application/tuning parameters
   mekf6.hpp         estimator interface and data types
   mekf6.cpp         MEKF implementation
-
+site/
+  index.html        browser flasher + serial monitor
+  app.js            Web Serial CSV parser / live status
+  styles.css        browser UI
+  manifest.json     ESP Web Tools flash manifest
 docs/
   algorithm.md      state/error conventions and equations
 .github/workflows/
   build.yml         PlatformIO compile check
+  pages.yml         build firmware and deploy GitHub Pages
 ```
 
 ## Why adaptive accel rejection matters
