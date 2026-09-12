@@ -11,6 +11,7 @@ const lineCount = $("lineCount");
 
 let port = null;
 let reader = null;
+let readTask = null;
 let keepReading = false;
 let receiveBuffer = "";
 let csvHeader = null;
@@ -23,8 +24,7 @@ function setStatus(text, kind = "neutral") {
 }
 
 function renderLog() {
-  const view = logLines.slice(-maxRenderedLines);
-  terminal.textContent = view.join("\n");
+  terminal.textContent = logLines.slice(-maxRenderedLines).join("\n");
   lineCount.textContent = `${logLines.length} lines`;
   if (autoScroll.checked) terminal.scrollTop = terminal.scrollHeight;
 }
@@ -41,12 +41,7 @@ function finiteNumber(value) {
 }
 
 function setMetric(id, value, digits = 2) {
-  const element = $(id);
-  if (value === null) {
-    element.textContent = "--";
-  } else {
-    element.textContent = value.toFixed(digits);
-  }
+  $(id).textContent = value === null ? "--" : value.toFixed(digits);
 }
 
 function parseLine(line) {
@@ -94,9 +89,9 @@ function parseLine(line) {
   }
 }
 
-async function readLoop() {
+async function readLoop(activePort) {
   const decoder = new TextDecoderStream();
-  const readableClosed = port.readable.pipeTo(decoder.writable).catch(() => {});
+  const readableClosed = activePort.readable.pipeTo(decoder.writable).catch(() => {});
   reader = decoder.readable.getReader();
 
   try {
@@ -111,7 +106,7 @@ async function readLoop() {
       lines.forEach(appendLine);
     }
   } catch (error) {
-    appendLine(`# Serial read error: ${error.message}`);
+    if (keepReading) appendLine(`# Serial read error: ${error.message}`);
   } finally {
     try { reader.releaseLock(); } catch (_) {}
     reader = null;
@@ -127,8 +122,9 @@ async function connectSerial() {
   }
 
   try {
-    port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 115200 });
+    const selectedPort = await navigator.serial.requestPort();
+    await selectedPort.open({ baudRate: 115200 });
+    port = selectedPort;
     keepReading = true;
     receiveBuffer = "";
     csvHeader = null;
@@ -136,27 +132,32 @@ async function connectSerial() {
     disconnectButton.disabled = false;
     setStatus("115200 bps 接続中", "good");
     appendLine("# Serial connected at 115200 bps.");
-    readLoop();
+    readTask = readLoop(selectedPort);
   } catch (error) {
     setStatus("接続失敗", "bad");
     appendLine(`# Serial connection error: ${error.message}`);
-    if (port?.readable || port?.writable) {
-      try { await port.close(); } catch (_) {}
-    }
     port = null;
   }
 }
 
 async function disconnectSerial() {
+  const activePort = port;
+  if (!activePort) return;
+
   keepReading = false;
   try {
     if (reader) await reader.cancel();
   } catch (_) {}
 
-  if (port) {
-    try { await port.close(); } catch (error) {
-      appendLine(`# Serial close warning: ${error.message}`);
-    }
+  try {
+    if (readTask) await readTask;
+  } catch (_) {}
+  readTask = null;
+
+  try {
+    await activePort.close();
+  } catch (error) {
+    appendLine(`# Serial close warning: ${error.message}`);
   }
 
   port = null;
@@ -199,7 +200,8 @@ if (!("serial" in navigator)) {
 }
 
 navigator.serial?.addEventListener("disconnect", async (event) => {
-  if (port && event.target === port) await disconnectSerial();
+  const disconnectedPort = event.port ?? event.target;
+  if (port && disconnectedPort === port) await disconnectSerial();
 });
 
 renderLog();
