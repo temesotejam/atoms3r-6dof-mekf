@@ -56,6 +56,22 @@ Initial target:
 
 It is intentionally structured so other AtomS3R-family devices supported by M5Unified can be tested with the same estimator.
 
+## Default mounting: Y180
+
+The standard physical installation for this project is now **180 degrees about the AtomS3R +Y axis** relative to the vehicle/body frame. In other words, the board is installed in the upside-down orientation identified from the validation log.
+
+Before gyro calibration or MEKF processing, both accelerometer and gyroscope vectors are converted from the M5Unified/AtomS3R frame to the vehicle body frame using:
+
+```text
+body X = -IMU X
+body Y =  IMU Y
+body Z = -IMU Z
+```
+
+This is a proper 180-degree rotation about Y, so the right-handed coordinate system is preserved. With the AtomS3R mounted in this standard Y180 orientation and the vehicle itself level, the estimator should initialize near `Roll = 0 deg` and `Pitch = 0 deg` rather than near 180 degrees.
+
+The transform is defined in `src/app_config.hpp` as `imuToBodyY180()` so a future mounting convention can be changed in one place.
+
 ## Build
 
 Install PlatformIO, clone this repository, then:
@@ -80,13 +96,15 @@ If the device is not detected for flashing, put AtomS3R-M12 into download mode: 
 pio device monitor -b 115200
 ```
 
-On boot, keep the device still for roughly 1.5 seconds while gyro bias is initialized. The firmware then initializes roll/pitch from averaged accelerometer data and starts CSV output.
+On boot, keep the vehicle/body still for roughly 1.5 seconds while gyro bias is initialized. The firmware then initializes roll/pitch from averaged accelerometer data and starts CSV output.
 
 CSV fields:
 
 ```text
 t_us,rate_hz,roll_deg,pitch_deg,yaw_deg,gx_dps,gy_dps,gz_dps,bgx_dps,bgy_dps,bgz_dps,acc_norm_g,acc_mag_err_g,acc_resid_deg,acc_conf,acc_used
 ```
+
+The gyro fields and estimated gyro-bias fields are expressed in the **vehicle body frame after the Y180 mounting transform**.
 
 Useful adaptive-rejection fields are:
 
@@ -112,7 +130,7 @@ All tuning values are in `src/app_config.hpp` and `src/mekf6.hpp`.
 
 ## Coordinate convention
 
-M5Unified supplies board-corrected IMU axes. The estimator uses a right-handed body coordinate system and a quaternion mapping body -> world. Euler output is ZYX yaw/pitch/roll derived from that quaternion.
+M5Unified first supplies board-corrected AtomS3R IMU axes. The application then applies the standard Y180 mounting transform above to obtain the vehicle/body frame. The estimator uses that right-handed body coordinate system and a quaternion mapping body -> world. Euler output is ZYX yaw/pitch/roll derived from that quaternion.
 
 At startup yaw is defined as 0 degrees because no heading sensor is used.
 
@@ -121,7 +139,7 @@ At startup yaw is defined as 0 degrees because no heading sensor is used.
 ```text
 src/
   main.cpp          AtomS3R executable firmware
-  app_config.hpp    application/tuning parameters
+  app_config.hpp    application/tuning + mounting transform
   mekf6.hpp         estimator interface and data types
   mekf6.cpp         MEKF implementation
 site/

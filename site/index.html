@@ -17,7 +17,7 @@
         <p class="lead">Gyro + Accelerometer の6軸MEKFをブラウザから書き込み、同じページで姿勢推定とAdaptive Accel Rejectionのログを確認できます。</p>
       </div>
       <div class="badges">
-        <span>ESP32-S3</span><span>MEKF</span><span>Web Serial</span>
+        <span>ESP32-S3</span><span>MEKF</span><span>Web Serial</span><span>Y180 mount</span>
       </div>
     </header>
 
@@ -30,6 +30,7 @@
         <span class="status neutral">USB接続</span>
       </div>
       <p class="muted">ATOMS3R-M12をUSBでPCへ接続してから下のボタンを押してください。書き込み時はシリアルモニタを切断してください。</p>
+      <p class="hint"><strong>標準取り付け:</strong> Y軸180°。機体座標は <code>X=-IMU X, Y=IMU Y, Z=-IMU Z</code> として処理します。この向きで機体水平ならRoll/Pitch≈0°が基準です。</p>
       <esp-web-install-button manifest="manifest.json">
         <button slot="activate" class="primary">接続してMEKFを書き込む</button>
         <span slot="unsupported">このブラウザはWeb Serial / WebUSBに対応していません。ChromeまたはEdgeのデスクトップ版を使用してください。</span>
@@ -48,7 +49,7 @@
         </div>
         <span id="serialStatus" class="status neutral">未接続</span>
       </div>
-      <p class="muted">書き込み後、ATOMS3Rを通常起動して接続してください。115200 bpsでMEKFのCSVログを読み取ります。</p>
+      <p class="muted">書き込み後、ATOMS3Rを通常起動して接続してください。115200 bpsでMEKFのCSVログを読み取ります。表示値はY180補正後の機体座標基準です。</p>
 
       <div class="actions">
         <button id="connectSerial" class="primary">シリアル接続</button>
@@ -85,6 +86,7 @@
     <section class="panel notes">
       <h2>見方</h2>
       <div class="notes-grid">
+        <div><strong>Y180 mounting</strong><p>AtomS3RをY軸まわり180°反転して取り付ける向きを標準とし、Accel/Gyroの両方を機体座標へ変換してからMEKFへ入れます。</p></div>
         <div><strong>acc_conf</strong><p>1に近いほど加速度を姿勢補正に強く使用します。急加速や外乱では下がります。</p></div>
         <div><strong>acc_used</strong><p>1ならAccel updateを実行、0ならRejectしてGyro predictionを優先しています。</p></div>
         <div><strong>Yaw</strong><p>6軸IMUには絶対方位基準がないため、Yawは相対角で時間とともにドリフトします。</p></div>

@@ -1,5 +1,27 @@
 # Algorithm notes
 
+## Mounting transform
+
+M5Unified first returns board-corrected AtomS3R IMU axes. This project then converts every IMU-frame vector into the vehicle/body frame before calibration or filtering.
+
+The standard installation is a **180-degree rotation about +Y (Y180)**:
+
+`v_body = R_y(180 deg) v_imu`
+
+with
+
+`R_y(180 deg) = diag(-1, +1, -1)`.
+
+Therefore:
+
+`body X = -IMU X`
+
+`body Y =  IMU Y`
+
+`body Z = -IMU Z`.
+
+The same transform is applied to both accelerometer and gyroscope measurements. Because this is a proper rotation with determinant +1, the right-handed coordinate system is preserved. Gyro startup bias calibration is performed after this transform, so the estimated bias is also expressed in body coordinates.
+
 ## State convention
 
 The nominal attitude is a unit quaternion `q` mapping body-frame vectors into the world frame.
@@ -11,7 +33,7 @@ The nominal gyro bias is maintained separately from the zero-mean EKF error stat
 
 ## Predict
 
-M5Unified gyroscope samples are converted from deg/s to rad/s. The nominal quaternion is propagated with an exponential-map increment using
+Body-frame gyroscope samples are converted from deg/s to rad/s. The nominal quaternion is propagated with an exponential-map increment using
 
 `omega = gyro - bias`.
 
